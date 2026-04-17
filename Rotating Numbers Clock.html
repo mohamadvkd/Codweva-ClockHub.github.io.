@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Rotating Numbers Clock</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #000000;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .clock-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<div class="clock-container">
+    <canvas id="clockCanvas"></canvas>
+</div>
+
+<script>
+    (function() {
+        const COLORS = {
+            BACKGROUND: '#000000',
+            STATIC_RING: '#333333',
+            OUTER_NUMBERS: '#4285F4',
+            INNER_NUMBERS: '#EA4335',
+            CURRENT_NUMBER: '#FFFFFF',
+            HOUR_TEXT: '#FFFFFF',
+            DATE_TEXT: '#888888',
+            CAPSULE_FRAME: '#444444',
+            MINUTE_TEXT: '#EA4335',
+            SECOND_TEXT: '#4285F4',
+            COLON: '#FFFFFF',
+            SHADOW: 'rgba(0,0,0,0.33)'
+        };
+
+        const canvas = document.getElementById('clockCanvas');
+        let ctx = null;
+        let width, height, centerX, centerY;
+        let outerRadius, innerRadius;
+        let capsuleX, capsuleY, capsuleWidth, capsuleHeight;
+        let isLandscape = false;
+        const numbers = ["60", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
+        let timeAcc = 0;
+        function initDimensions() {
+            const dpr = window.devicePixelRatio || 1;
+            width = window.innerWidth;
+            height = window.innerHeight;
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+
+            ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            isLandscape = width > height;
+            centerX = width / 2;
+            centerY = height / 2;
+
+            let maxRadius = Math.min(width, height) / 2 - 50;
+            outerRadius = maxRadius * 0.9;
+            innerRadius = maxRadius * 0.65;
+            capsuleHeight = outerRadius * 0.45;
+            capsuleWidth = capsuleHeight * 2.2;
+            if (isLandscape) {
+                capsuleX = centerX + outerRadius + 50;
+                capsuleY = centerY;
+            } else {
+                capsuleX = centerX;
+                capsuleY = centerY + outerRadius + 60;
+            }
+        }
+        function drawStaticRings() {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, outerRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = COLORS.STATIC_RING;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.4;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+        function drawRotatingNumbers(radius, color, totalRotation, currentValue) {
+            let fontSize = innerRadius * 0.18;
+            ctx.font = `500 ${fontSize}px "Segoe UI", "Roboto", monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            for (let i = 0; i < 12; i++) {
+                let numberValue = (i === 0) ? 60 : i * 5;
+                let angle = (i * 30) + totalRotation;
+                let angleRad = angle * Math.PI / 180;
+                
+                let x = centerX + Math.cos(angleRad) * radius;
+                let y = centerY + Math.sin(angleRad) * radius;
+                
+                let isCurrent = (numberValue === currentValue) || (currentValue === 0 && numberValue === 60);
+                let angleMod = angle % 360;
+                let isNearReading = (angleMod > -20 && angleMod < 20);
+                
+                if (isCurrent && isNearReading) {
+                  
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = COLORS.CURRENT_NUMBER;
+                    ctx.fillStyle = COLORS.CURRENT_NUMBER;
+                    ctx.font = `bold ${fontSize * 1.15}px "Segoe UI", "Roboto", monospace`;
+                    ctx.fillText(numbers[i], x, y);
+                    ctx.font = `500 ${fontSize}px "Segoe UI", "Roboto", monospace`;
+                } else {
+                    ctx.shadowBlur = 4;
+                    ctx.shadowColor = COLORS.SHADOW;
+                    ctx.fillStyle = color;
+                    ctx.fillText(numbers[i], x, y);
+                }
+            }
+            ctx.shadowBlur = 0;
+        }
+        function drawCapsule(minutes, seconds) {
+            let capsuleRadius = capsuleHeight / 2;
+            let x = capsuleX - capsuleWidth / 2;
+            let y = capsuleY - capsuleHeight / 2;
+            
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetX = 4;
+            ctx.shadowOffsetY = 4;
+            ctx.shadowColor = COLORS.SHADOW;
+            ctx.beginPath();
+            ctx.roundRect(x, y, capsuleWidth, capsuleHeight, capsuleRadius);
+            ctx.fillStyle = COLORS.BACKGROUND;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.roundRect(x, y, capsuleWidth, capsuleHeight, capsuleRadius);
+            ctx.strokeStyle = COLORS.CAPSULE_FRAME;
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+           
+            let textSize = capsuleHeight * 0.42;
+            let minuteText = minutes.toString().padStart(2, '0');
+            let secondText = seconds.toString().padStart(2, '0');
+            
+            ctx.font = `${textSize}px "Segoe UI", "Roboto", monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            let totalWidth = ctx.measureText("00:00").width;
+            let startX = capsuleX - totalWidth / 2;
+            let minuteWidth = ctx.measureText("00").width;
+            ctx.fillStyle = COLORS.MINUTE_TEXT;
+            ctx.fillText(minuteText, startX + minuteWidth / 2, capsuleY);
+            ctx.fillStyle = COLORS.COLON;
+            ctx.fillText(":", capsuleX, capsuleY);
+            ctx.fillStyle = COLORS.SECOND_TEXT;
+            ctx.fillText(secondText, capsuleX + totalWidth / 2 - ctx.measureText("00").width / 2, capsuleY);
+            let labelSize = textSize * 0.28;
+            ctx.font = `${labelSize}px "Segoe UI", "Roboto", sans-serif`;
+            ctx.fillStyle = COLORS.DATE_TEXT;
+            let labelY = capsuleY + capsuleHeight / 2 - 14;
+            ctx.fillText("MIN", startX + minuteWidth / 2, labelY);
+            ctx.fillText("SEC", capsuleX + totalWidth / 2 - ctx.measureText("00").width / 2, labelY);
+        }
+        function drawDate(day, month, year) {
+            let fontSize = innerRadius * 0.18;
+            let dateText = `${day.toString().padStart(2, '0')}.${month.toString().padStart(2, '0')}.${year}`;
+            
+            ctx.font = `${fontSize}px "Segoe UI", "Roboto", sans-serif`;
+            ctx.fillStyle = COLORS.DATE_TEXT;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowBlur = 4;
+            ctx.shadowColor = COLORS.SHADOW;
+            
+            let dateY = centerY + innerRadius * 0.65;
+            ctx.fillText(dateText, centerX, dateY);
+            let lineWidth = ctx.measureText(dateText).width * 0.7;
+            ctx.beginPath();
+            ctx.moveTo(centerX - lineWidth / 2, dateY + 12);
+            ctx.lineTo(centerX + lineWidth / 2, dateY + 12);
+            ctx.strokeStyle = COLORS.DATE_TEXT;
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.5;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+        }
+        function drawCenterHour(hours) {
+            let fontSize = innerRadius * 0.65;
+            ctx.font = `bold ${fontSize}px "Segoe UI", "Roboto", sans-serif`;
+            ctx.fillStyle = COLORS.HOUR_TEXT;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.shadowColor = COLORS.SHADOW;
+            ctx.fillText(hours.toString(), centerX, centerY);
+            ctx.shadowBlur = 0;
+        }
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.moveTo(x + r, y);
+                this.lineTo(x + w - r, y);
+                this.quadraticCurveTo(x + w, y, x + w, y + r);
+                this.lineTo(x + w, y + h - r);
+                this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                this.lineTo(x + r, y + h);
+                this.quadraticCurveTo(x, y + h, x, y + h - r);
+                this.lineTo(x, y + r);
+                this.quadraticCurveTo(x, y, x + r, y);
+                return this;
+            };
+        }
+        function drawClock() {
+            const now = new Date();
+            let hours = now.getHours() % 12;
+            if (hours === 0) hours = 12;
+            let minutes = now.getMinutes();
+            let seconds = now.getSeconds();
+            let millis = now.getMilliseconds();
+            let day = now.getDate();
+            let month = now.getMonth() + 1;
+            let year = now.getFullYear();
+            
+            timeAcc += 0.016;
+            let secondRotation = -(seconds + millis / 1000) * 6;
+            let minuteRotation = -(minutes + seconds / 60) * 6;
+            ctx.fillStyle = COLORS.BACKGROUND;
+            ctx.fillRect(0, 0, width, height);
+            drawStaticRings();
+            drawRotatingNumbers(outerRadius, COLORS.OUTER_NUMBERS, secondRotation, seconds);
+            drawRotatingNumbers(innerRadius, COLORS.INNER_NUMBERS, minuteRotation, minutes);
+            drawCapsule(minutes, seconds);
+            drawDate(day, month, year);
+            drawCenterHour(hours);
+            
+            requestAnimationFrame(drawClock);
+        }
+        window.addEventListener('resize', () => {
+            setTimeout(initDimensions, 100);
+        });
+        initDimensions();
+        drawClock();
+    })();
+</script>
+</body>
+</html>

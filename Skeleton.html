@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>Skeleton</title>
+    <style>
+        body { background: #0a0b0e; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .clock-base {
+            width: 270px; height: 270px;
+            background: #1a1c22;
+            border-radius: 50%;
+            position: relative;
+            border: 2px solid #30363d;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8), inset 0 2px 2px rgba(255,255,255,0.1);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .dial-surface {
+            width: 92%; height: 92%;
+            border-radius: 50%;
+            position: relative;
+            background: 
+                radial-gradient(circle at 50% 10%, rgba(255,255,255,0.08) 0%, transparent 50%),
+                radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        .glow-effect {
+            position: absolute; top: 50%; left: 50%;
+            width: 120%; height: 120%;
+            background: radial-gradient(circle at center, rgba(47, 129, 247, 0.15) 0%, transparent 70%);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        .hand {
+            position: absolute; bottom: 50%; left: 50%;
+            transform-origin: bottom; border-radius: 20px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+        }
+        .hour { width: 8px; height: 70px; margin-left: -4px; background: #fff; z-index: 3; }
+        .minute { width: 5px; height: 100px; margin-left: -2.5px; background: #adb5bd; z-index: 2; }
+        .second { 
+            width: 2px; height: 120px; margin-left: -1px; 
+            background: #2f81f7; z-index: 4;
+            box-shadow: 0 0 15px rgba(47, 129, 247, 0.6); 
+        }
+        .center-pin {
+            width: 10px; height: 10px; background: #2f81f7; border-radius: 50%;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 10; box-shadow: 0 0 10px #2f81f7;
+        }
+    </style>
+</head>
+<body>
+    <div class="clock-base">
+        <div class="dial-surface">
+            <div class="glow-effect"></div>
+            <div class="hand hour" id="hourHand"></div>
+            <div class="hand minute" id="minuteHand"></div>
+            <div class="hand second" id="secondHand"></div>
+            <div class="center-pin"></div>
+        </div>
+    </div>
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const s = now.getSeconds();
+            const m = now.getMinutes();
+            const h = now.getHours();
+            document.getElementById('secondHand').style.transform = `rotate(${s * 6}deg)`;
+            document.getElementById('minuteHand').style.transform = `rotate(${m * 6 + s * 0.1}deg)`;
+            document.getElementById('hourHand').style.transform = `rotate(${(h % 12) * 30 + m * 0.5}deg)`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+</body>
+</html>
