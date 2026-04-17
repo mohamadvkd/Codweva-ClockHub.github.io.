@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Sylva</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #0A1F0A;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .clock-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<div class="clock-container">
+    <canvas id="clockCanvas"></canvas>
+</div>
+
+<script>
+    (function() {
+        const COLORS = {
+            BG_DEEP: '#051005',
+            BG_MID: '#0F2E15',
+            BG_LIGHT: '#1A4A25',
+            WOOD_DARK: '#3D2914',
+            WOOD_MID: '#5C3A1E',
+            WOOD_LIGHT: '#8B5A2B',
+            GOLD: '#FFD700',
+            GOLD_SOFT: '#F0E68C',
+            GREEN_LIGHT: '#90EE90',
+            GREEN_MINT: '#98FB98',
+            GLOW_FIRE: 'rgba(255, 200, 100, 0.6)',
+            GLOW_MOON: 'rgba(200, 255, 200, 0.3)',
+            FIREFLY_CORE: '#FFFACD',
+            LEAF_1: '#228B22',
+            LEAF_2: '#32CD32',
+            LEAF_3: '#6B8E23',
+            LEAF_FALL: '#9ACD32',
+            MOSS: '#556B2F'
+        };
+
+        const canvas = document.getElementById('clockCanvas');
+        let ctx = null;
+        let width, height, centerX, centerY, radius;
+        let dpr = 1;
+        
+        let time = 0;
+        let fireflies = [];
+        let fallingLeaves = [];
+        let treeRing = [];
+        let particles = [];
+        let moonGlow = 0;
+        
+        function initDimensions() {
+            dpr = window.devicePixelRatio || 1;
+            width = window.innerWidth;
+            height = window.innerHeight;
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+
+            ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            centerX = width / 2;
+            centerY = height / 2;
+            radius = Math.min(width, height) / 2 - 40;
+            
+            initElements();
+        }
+
+        function initElements() {
+            fireflies = [];
+            for (let i = 0; i < 12; i++) {
+                fireflies.push({
+                    angle: (i / 12) * Math.PI * 2,
+                    dist: radius * (0.9 + Math.random() * 0.4),
+                    speed: 0.3 + Math.random() * 0.5,
+                    phase: Math.random() * Math.PI * 2,
+                    size: 3 + Math.random() * 4
+                });
+            }
+
+            fallingLeaves = [];
+            for (let i = 0; i < 15; i++) {
+                fallingLeaves.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    size: 8 + Math.random() * 12,
+                    speedY: 0.3 + Math.random() * 1.2,
+                    speedX: (Math.random() - 0.5) * 0.8,
+                    rot: Math.random() * Math.PI * 2,
+                    rotSpeed: (Math.random() - 0.5) * 0.03,
+                    color: [COLORS.LEAF_1, COLORS.LEAF_2, COLORS.LEAF_3, COLORS.LEAF_FALL][Math.floor(Math.random() * 4)],
+                    sway: Math.random() * Math.PI * 2
+                });
+            }
+
+            treeRing = [];
+            for (let i = 0; i < 60; i++) {
+                let angle = (i / 60) * Math.PI * 2;
+                let r = radius + 15 + Math.sin(i * 0.5) * 8;
+                treeRing.push({
+                    x: Math.cos(angle) * r,
+                    y: Math.sin(angle) * r,
+                    size: 4 + Math.random() * 6
+                });
+            }
+
+            particles = [];
+            for (let i = 0; i < 30; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    size: 1 + Math.random() * 2,
+                    speedY: -0.2 - Math.random() * 0.5,
+                    alpha: Math.random() * 0.5
+                });
+            }
+        }
+
+        function drawBackground() {
+            let grad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, Math.max(width, height));
+            grad.addColorStop(0, COLORS.BG_MID);
+            grad.addColorStop(0.4, COLORS.BG_DEEP);
+            grad.addColorStop(1, '#020802');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+
+            moonGlow += 0.02;
+            let moonPulse = 20 + Math.sin(moonGlow) * 5;
+            
+            let moonGrad = ctx.createRadialGradient(centerX, centerY, radius * 0.5, centerX, centerY, radius * 1.2);
+            moonGrad.addColorStop(0, 'rgba(100, 200, 100, 0.1)');
+            moonGrad.addColorStop(0.5, 'rgba(50, 100, 50, 0.05)');
+            moonGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = moonGrad;
+            ctx.fillRect(0, 0, width, height);
+        }
+
+        function drawTreeTexture() {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            
+            let rings = 8;
+            for (let i = rings; i > 0; i--) {
+                let r = (radius * i) / rings;
+                ctx.beginPath();
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                
+                let woodGrad = ctx.createRadialGradient(0, 0, r * 0.7, 0, 0, r);
+                woodGrad.addColorStop(0, i % 2 === 0 ? COLORS.WOOD_DARK : COLORS.WOOD_MID);
+                woodGrad.addColorStop(1, COLORS.WOOD_LIGHT);
+                ctx.fillStyle = woodGrad;
+                ctx.fill();
+                
+                ctx.strokeStyle = 'rgba(61, 41, 20, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = COLORS.WOOD_DARK;
+            ctx.lineWidth = 6;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, radius - 8, 0, Math.PI * 2);
+            ctx.strokeStyle = COLORS.WOOD_LIGHT;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            for (let i = 0; i < 12; i++) {
+                let angle = (i / 12) * Math.PI * 2;
+                let r1 = radius - 15;
+                let r2 = radius - 5;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(angle) * r1, Math.sin(angle) * r1);
+                ctx.lineTo(Math.cos(angle) * r2, Math.sin(angle) * r2);
+                ctx.strokeStyle = COLORS.WOOD_DARK;
+                ctx.lineWidth = i % 3 === 0 ? 4 : 2;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawVines() {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            
+            for (let i = 0; i < 6; i++) {
+                let angle = (i / 6) * Math.PI * 2 + time * 0.001;
+                let startR = radius + 10;
+                let endR = radius + 40 + Math.sin(time * 0.002 + i) * 10;
+                
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(angle) * startR, Math.sin(angle) * startR);
+                
+                let cp1x = Math.cos(angle + 0.3) * (startR + endR) / 2;
+                let cp1y = Math.sin(angle + 0.3) * (startR + endR) / 2;
+                let cp2x = Math.cos(angle - 0.2) * endR;
+                let cp2y = Math.sin(angle - 0.2) * endR;
+                
+                ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, Math.cos(angle) * endR, Math.sin(angle) * endR);
+                
+                ctx.strokeStyle = COLORS.MOSS;
+                ctx.lineWidth = 5;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                let leafX = Math.cos(angle) * endR;
+                let leafY = Math.sin(angle) * endR;
+                
+                ctx.save();
+                ctx.translate(leafX, leafY);
+                ctx.rotate(angle + Math.PI / 2 + Math.sin(time * 0.003 + i) * 0.3);
+                
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 12, 6, 0, 0, Math.PI * 2);
+                ctx.fillStyle = COLORS.LEAF_2;
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, -6);
+                ctx.lineTo(0, 6);
+                ctx.strokeStyle = COLORS.WOOD_DARK;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+            
+            ctx.restore();
+        }
+
+        function drawNumbers() {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            
+            let nums = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'];
+            
+            for (let i = 0; i < 12; i++) {
+                let angle = (i * 30 - 90) * Math.PI / 180;
+                let dist = radius * 0.75;
+                let x = Math.cos(angle) * dist;
+                let y = Math.sin(angle) * dist;
+                
+                ctx.save();
+                ctx.translate(x, y);
+                
+                let fontSize = radius * 0.14;
+                ctx.font = `bold ${fontSize}px "Georgia", "Times New Roman", serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                let isMain = i % 3 === 0;
+                
+                ctx.shadowBlur = isMain ? 15 : 8;
+                ctx.shadowColor = isMain ? COLORS.GOLD : COLORS.GREEN_LIGHT;
+                ctx.fillStyle = isMain ? COLORS.GOLD : COLORS.GREEN_MINT;
+                
+                ctx.fillText(nums[i], 0, 0);
+                
+                if (isMain) {
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+                    ctx.fillText(nums[i], 2, 2);
+                }
+                
+                ctx.restore();
+            }
+            
+            ctx.restore();
+        }
+
+        function drawFireflies() {
+            for (let f of fireflies) {
+                f.phase += f.speed * 0.05;
+                f.angle += 0.002;
+                
+                let x = centerX + Math.cos(f.angle) * f.dist + Math.sin(f.phase) * 20;
+                let y = centerY + Math.sin(f.angle) * f.dist * 0.6 + Math.cos(f.phase * 0.7) * 15;
+                
+                let pulse = 0.5 + Math.sin(f.phase * 2) * 0.4;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, f.size * 3, 0, Math.PI * 2);
+                let grad = ctx.createRadialGradient(x, y, 0, x, y, f.size * 3);
+                grad.addColorStop(0, `rgba(255, 250, 205, ${pulse * 0.8})`);
+                grad.addColorStop(0.5, `rgba(255, 200, 100, ${pulse * 0.4})`);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(x, y, f.size * 0.6, 0, Math.PI * 2);
+                ctx.fillStyle = COLORS.FIREFLY_CORE;
+                ctx.globalAlpha = 0.8 + pulse * 0.2;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function drawFallingLeaves() {
+            for (let leaf of fallingLeaves) {
+                leaf.y += leaf.speedY;
+                leaf.x += leaf.speedX + Math.sin(leaf.sway) * 0.5;
+                leaf.rot += leaf.rotSpeed;
+                leaf.sway += 0.03;
+                
+                if (leaf.y > height + 50) {
+                    leaf.y = -50;
+                    leaf.x = Math.random() * width;
+                }
+                if (leaf.x > width + 50) leaf.x = -50;
+                if (leaf.x < -50) leaf.x = width + 50;
+                
+                ctx.save();
+                ctx.translate(leaf.x, leaf.y);
+                ctx.rotate(leaf.rot);
+                
+                ctx.beginPath();
+                ctx.moveTo(0, -leaf.size / 2);
+                ctx.quadraticCurveTo(leaf.size / 2, -leaf.size / 4, 0, leaf.size / 2);
+                ctx.quadraticCurveTo(-leaf.size / 2, -leaf.size / 4, 0, -leaf.size / 2);
+                ctx.fillStyle = leaf.color;
+                ctx.globalAlpha = 0.7;
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, -leaf.size / 2);
+                ctx.lineTo(0, leaf.size / 2);
+                ctx.strokeStyle = COLORS.WOOD_DARK;
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.5;
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawParticles() {
+            for (let p of particles) {
+                p.y += p.speedY;
+                p.alpha += (Math.random() - 0.5) * 0.1;
+                p.alpha = Math.max(0.1, Math.min(0.6, p.alpha));
+                
+                if (p.y < -10) {
+                    p.y = height + 10;
+                    p.x = Math.random() * width;
+                }
+                
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(200, 255, 200, ${p.alpha})`;
+                ctx.fill();
+            }
+        }
+
+        function drawHand(type, angle, length, width, color, hasGlow) {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate((angle - 90) * Math.PI / 180);
+            
+            if (hasGlow) {
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = color;
+            }
+            
+            if (type === 'hour') {
+                ctx.beginPath();
+                ctx.moveTo(0, -width);
+                ctx.lineTo(length * 0.2, -width * 0.6);
+                ctx.lineTo(length, 0);
+                ctx.lineTo(length * 0.2, width * 0.6);
+                ctx.lineTo(0, width);
+                ctx.closePath();
+                ctx.fillStyle = COLORS.WOOD_LIGHT;
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, -width * 0.5);
+                ctx.lineTo(length * 0.9, 0);
+                ctx.lineTo(0, width * 0.5);
+                ctx.fillStyle = COLORS.WOOD_MID;
+                ctx.fill();
+            } else if (type === 'minute') {
+                ctx.beginPath();
+                ctx.moveTo(0, -width * 0.8);
+                ctx.quadraticCurveTo(length * 0.5, -width * 0.4, length, 0);
+                ctx.quadraticCurveTo(length * 0.5, width * 0.4, 0, width * 0.8);
+                ctx.closePath();
+                ctx.fillStyle = COLORS.GREEN_LIGHT;
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(length, 0);
+                ctx.strokeStyle = COLORS.MOSS;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(length, 0);
+                ctx.strokeStyle = COLORS.GOLD;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.arc(length, 0, 6, 0, Math.PI * 2);
+                ctx.fillStyle = COLORS.GOLD;
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(length, 0, 12, 0, Math.PI * 2);
+                let grad = ctx.createRadialGradient(length, 0, 0, length, 0, 12);
+                grad.addColorStop(0, 'rgba(255, 215, 0, 0.8)');
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.fill();
+            }
+            
+            ctx.restore();
+        }
+
+        function drawCenter() {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            
+            let pulse = 1 + Math.sin(time * 0.005) * 0.1;
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, 18 * pulse, 0, Math.PI * 2);
+            let grad = ctx.createRadialGradient(0, 0, 0, 0, 0, 18 * pulse);
+            grad.addColorStop(0, COLORS.GOLD);
+            grad.addColorStop(0.5, COLORS.WOOD_LIGHT);
+            grad.addColorStop(1, COLORS.WOOD_DARK);
+            ctx.fillStyle = grad;
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, 8, 0, Math.PI * 2);
+            ctx.fillStyle = COLORS.GOLD_SOFT;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = COLORS.GOLD;
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        function drawDate() {
+            let now = new Date();
+            let dateStr = now.toLocaleDateString('ar-SA', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short'
+            });
+            
+            ctx.font = `500 ${radius * 0.06}px "Segoe UI", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            let y = centerY + radius * 0.32;
+            
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.fillStyle = COLORS.GREEN_MINT;
+            ctx.fillText(dateStr, centerX, y);
+            
+            ctx.shadowBlur = 0;
+        }
+
+        function drawClock() {
+            let now = new Date();
+            let ms = now.getMilliseconds();
+            let s = now.getSeconds() + ms / 1000;
+            let m = now.getMinutes() + s / 60;
+            let h = now.getHours() % 12 + m / 60;
+            
+            time += 16;
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            drawBackground();
+            drawParticles();
+            drawTreeTexture();
+            drawVines();
+            drawNumbers();
+            drawFallingLeaves();
+            
+            drawHand('hour', h * 30, radius * 0.5, 12, COLORS.WOOD_LIGHT, false);
+            drawHand('minute', m * 6, radius * 0.7, 8, COLORS.GREEN_LIGHT, true);
+            drawHand('second', s * 6, radius * 0.85, 4, COLORS.GOLD, true);
+            
+            drawCenter();
+            drawFireflies();
+            drawDate();
+            
+            requestAnimationFrame(drawClock);
+        }
+
+        window.addEventListener('resize', () => {
+            setTimeout(initDimensions, 100);
+        });
+
+        initDimensions();
+        drawClock();
+    })();
+</script>
+</body>
+</html>

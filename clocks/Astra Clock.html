@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<title>Astra Clock</title>
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+html, body{
+  height:100%;
+  overflow:hidden;
+}
+
+body{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background: radial-gradient(circle at top, #0b1220, #05070f);
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.clock{
+  width:min(90vw, 320px);
+  height:min(90vw, 320px);
+  border-radius:50%;
+  position:relative;
+
+  background: radial-gradient(circle at 30% 30%, #1e90ff, #0a1a2f);
+  box-shadow:
+    0 20px 50px rgba(0,0,0,0.6),
+    inset 0 0 20px rgba(255,255,255,0.1);
+}
+.clock::before{
+  content:"";
+  position:absolute;
+  inset:-8px;
+  border-radius:50%;
+  border:2px solid rgba(255,255,255,0.08);
+}
+.center{
+  position:absolute;
+  width:14px;
+  height:14px;
+  background:white;
+  border-radius:50%;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  box-shadow:0 0 10px cyan;
+}
+.hand{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform-origin:bottom;
+  transform:translate(-50%,-100%);
+  border-radius:6px;
+}
+
+.hour{
+  width:6px;
+  height:22%;
+  background:white;
+}
+
+.minute{
+  width:4px;
+  height:30%;
+  background:#00d4ff;
+}
+
+.second{
+  width:2px;
+  height:35%;
+  background:#ff3b3b;
+}
+.num{
+  position:absolute;
+  width:100%;
+  height:100%;
+  text-align:center;
+  color:white;
+  font-size:clamp(12px, 2.5vw, 18px);
+}
+
+.num span{
+  position:absolute;
+  left:50%;
+  top:6%;
+  transform:translateX(-50%);
+}
+
+.num1{transform:rotate(30deg);}
+.num2{transform:rotate(60deg);}
+.num3{transform:rotate(90deg);}
+.num4{transform:rotate(120deg);}
+.num5{transform:rotate(150deg);}
+.num6{transform:rotate(180deg);}
+.num7{transform:rotate(210deg);}
+.num8{transform:rotate(240deg);}
+.num9{transform:rotate(270deg);}
+.num10{transform:rotate(300deg);}
+.num11{transform:rotate(330deg);}
+.num12{transform:rotate(0deg);}
+</style>
+</head>
+
+<body>
+
+<div class="clock">
+  <div class="num num1"><span>1</span></div>
+  <div class="num num2"><span>2</span></div>
+  <div class="num num3"><span>3</span></div>
+  <div class="num num4"><span>4</span></div>
+  <div class="num num5"><span>5</span></div>
+  <div class="num num6"><span>6</span></div>
+  <div class="num num7"><span>7</span></div>
+  <div class="num num8"><span>8</span></div>
+  <div class="num num9"><span>9</span></div>
+  <div class="num num10"><span>10</span></div>
+  <div class="num num11"><span>11</span></div>
+  <div class="num num12"><span>12</span></div>
+  <div class="hand hour" id="hour"></div>
+  <div class="hand minute" id="minute"></div>
+  <div class="hand second" id="second"></div>
+
+  <div class="center"></div>
+
+</div>
+
+<script>
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('gestureend', e => e.preventDefault());
+
+document.addEventListener('touchmove', function(e){
+  if(e.scale !== 1){
+    e.preventDefault();
+  }
+}, { passive:false });
+
+document.addEventListener('dblclick', function(e){
+  e.preventDefault();
+}, { passive:false });
+function updateClock(){
+  const now = new Date();
+
+  const sec = now.getSeconds();
+  const min = now.getMinutes();
+  const hr = now.getHours();
+
+  const secDeg = sec * 6;
+  const minDeg = min * 6 + sec * 0.1;
+  const hrDeg = (hr % 12) * 30 + min * 0.5;
+
+  document.getElementById("second").style.transform =
+    `translate(-50%,-100%) rotate(${secDeg}deg)`;
+
+  document.getElementById("minute").style.transform =
+    `translate(-50%,-100%) rotate(${minDeg}deg)`;
+
+  document.getElementById("hour").style.transform =
+    `translate(-50%,-100%) rotate(${hrDeg}deg)`;
+}
+
+setInterval(updateClock, 1000);
+updateClock();
+
+</script>
+
+</body>
+</html>
